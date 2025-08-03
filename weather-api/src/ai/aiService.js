@@ -1,85 +1,168 @@
-const OpenAI = require('openai');
+const axios = require('axios');
 const logger = require('../utils/logger');
 
 class AIService {
   constructor() {
-    this.openai = new OpenAI({
-      apiKey: process.env.OPENAI_API_KEY
-    });
+    this.hfApiKey = process.env.HUGGINGFACE_API_TOKEN;
+    this.hfApiUrl = 'https://api-inference.huggingface.co/models/';
   }
 
   async enhanceWeatherData(weatherData) {
     try {
-      const prompt = `
-        Based on this weather data, provide:
-        1. A creative weather description
-        2. Lifestyle recommendations
-        3. A visual description for image generation
-        
-        Weather Data: ${JSON.stringify(weatherData)}
-      `;
+      if (!this.hfApiKey) {
+        logger.warn('Hugging Face API key not configured, using fallback');
+        return this.getFallbackWeatherDescription(weatherData);
+      }
 
-      const response = await this.openai.chat.completions.create({
-        model: "gpt-3.5-turbo",
-        messages: [{ role: "user", content: prompt }],
-        max_tokens: 300,
-        temperature: 0.7
-      });
+      const prompt = `Based on this weather data, provide a creative weather description and lifestyle recommendations: ${JSON.stringify(weatherData)}`;
 
+      // Use a free, lightweight model
+      const response = await axios.post(
+        `${this.hfApiUrl}microsoft/DialoGPT-medium`,
+        { inputs: prompt },
+        {
+          headers: {
+            'Authorization': `Bearer ${this.hfApiKey}`,
+            'Content-Type': 'application/json'
+          },
+          timeout: 30000
+        }
+      );
+
+      const generatedText = response.data[0].generated_text;
       return {
-        description: response.choices[0].message.content,
+        description: generatedText,
         timestamp: new Date().toISOString()
       };
     } catch (error) {
-      logger.error('AI enhancement error:', error);
-      return null;
+      logger.error('AI enhancement error:', error.response?.data || error.message);
+      return this.getFallbackWeatherDescription(weatherData);
     }
   }
 
   async extractLocationFromQuery(query) {
     try {
-      const response = await this.openai.chat.completions.create({
-        model: "gpt-3.5-turbo",
-        messages: [{
-          role: "system",
-          content: "Extract the location from this weather query. Return only the location name."
-        }, {
-          role: "user",
-          content: query
-        }],
-        max_tokens: 50,
-        temperature: 0.3
-      });
+      if (!this.hfApiKey) {
+        logger.warn('Hugging Face API key not configured, using pattern matching');
+        return this.extractLocationWithPatterns(query);
+      }
 
-      return response.choices[0].message.content.trim();
+      const prompt = `Extract the location from this weather query: "${query}". Return only the location name.`;
+
+      const response = await axios.post(
+        `${this.hfApiUrl}microsoft/DialoGPT-medium`,
+        { inputs: prompt },
+        {
+          headers: {
+            'Authorization': `Bearer ${this.hfApiKey}`,
+            'Content-Type': 'application/json'
+          },
+          timeout: 30000
+        }
+      );
+
+      const generatedText = response.data[0].generated_text;
+      // Extract location from generated text
+      const locationMatch = generatedText.match(/([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)/);
+      return locationMatch ? locationMatch[1].trim() : null;
     } catch (error) {
-      logger.error('Location extraction error:', error);
-      return null;
+      logger.error('Location extraction error:', error.response?.data || error.message);
+      return this.extractLocationWithPatterns(query);
     }
   }
 
   async generateNaturalLanguageResponse(query, weatherData) {
     try {
-      const response = await this.openai.chat.completions.create({
-        model: "gpt-3.5-turbo",
-        messages: [{
-          role: "system",
-          content: "You are a helpful weather assistant. Answer the user's question based on the provided weather data."
-        }, {
-          role: "user",
-          content: query
-        }, {
-          role: "assistant",
-          content: `Weather data: ${JSON.stringify(weatherData)}`
-        }],
-        max_tokens: 200,
-        temperature: 0.7
-      });
+      if (!this.hfApiKey) {
+        logger.warn('Hugging Face API key not configured, using fallback');
+        return this.getFallbackNLPResponse(query, weatherData);
+      }
 
-      return response.choices[0].message.content;
+      const prompt = `User query: "${query}". Weather data: ${JSON.stringify(weatherData)}. Provide a natural language response.`;
+
+      const response = await axios.post(
+        `${this.hfApiUrl}microsoft/DialoGPT-medium`,
+        { inputs: prompt },
+        {
+          headers: {
+            'Authorization': `Bearer ${this.hfApiKey}`,
+            'Content-Type': 'application/json'
+          },
+          timeout: 30000
+        }
+      );
+
+      const generatedText = response.data[0].generated_text;
+      return generatedText;
     } catch (error) {
-      logger.error('NLP response error:', error);
-      return "I'm sorry, I couldn't process your request at this time.";
+      logger.error('NLP response error:', error.response?.data || error.message);
+      return this.getFallbackNLPResponse(query, weatherData);
+    }
+  }
+
+  // Keep the fallback methods
+  getFallbackWeatherDescription(weatherData) {
+    const condition = weatherData.current.conditions.toLowerCase();
+    const temp = weatherData.current.temp;
+    
+    let description = `The weather in ${weatherData.location} is currently ${condition} with a temperature of ${temp}°C. `;
+    
+    if (condition.includes('sunny') || condition.includes('clear')) {
+      description += "It's a great day for outdoor activities!";
+    } else if (condition.includes('rain')) {
+      description += "Don't forget your umbrella if you're heading out.";
+    } else if (condition.includes('cloud')) {
+      description += "Perfect weather for a walk or outdoor exercise.";
+    } else if (temp > 25) {
+      description += "It's quite warm, stay hydrated!";
+    } else if (temp < 10) {
+      description += "Bundle up, it's quite chilly!";
+    }
+    
+    return {
+      description,
+      timestamp: new Date().toISOString()
+    };
+  }
+
+  extractLocationWithPatterns(query) {
+    const locationPatterns = [
+      /(?:in|at|for)\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)/i,
+      /([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)(?:\s+weather)/i,
+      /weather\s+(?:in|at|for)\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)/i
+    ];
+    
+    for (const pattern of locationPatterns) {
+      const match = query.match(pattern);
+      if (match && match[1]) {
+        return match[1].trim();
+      }
+    }
+    
+    // Fallback: look for capitalized words that might be location names
+    const words = query.split(' ');
+    for (const word of words) {
+      if (word[0] === word[0].toUpperCase() && word.length > 2) {
+        return word;
+      }
+    }
+    
+    return null;
+  }
+
+  getFallbackNLPResponse(query, weatherData) {
+    const location = weatherData.location;
+    const condition = weatherData.current.conditions;
+    const temp = weatherData.current.temp;
+    
+    if (query.toLowerCase().includes('weather')) {
+      return `The weather in ${location} is currently ${condition} with a temperature of ${temp}°C.`;
+    } else if (query.toLowerCase().includes('temperature')) {
+      return `The current temperature in ${location} is ${temp}°C.`;
+    } else if (query.toLowerCase().includes('condition')) {
+      return `The weather condition in ${location} is currently ${condition}.`;
+    } else {
+      return `In ${location}, it's currently ${condition} with a temperature of ${temp}°C.`;
     }
   }
 }
