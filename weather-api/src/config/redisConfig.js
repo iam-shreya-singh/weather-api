@@ -4,7 +4,10 @@ const { promisify } = require('util');
 class RedisConfig {
   constructor() {
     this.client = redis.createClient({
-      url: process.env.REDIS_URL || 'redis://localhost:6379'
+      url: process.env.REDIS_URL || 'redis://localhost:6379',
+      socket: {
+        reconnectStrategy: (retries) => Math.min(retries * 50, 500)
+      }
     });
 
     this.client.on('error', (err) => {
@@ -22,11 +25,25 @@ class RedisConfig {
   }
 
   async connect() {
-    await this.client.connect();
+    try {
+      await this.client.connect();
+      // Set memory-efficient options
+      await this.client.configSet('maxmemory', '256mb');
+      await this.client.configSet('maxmemory-policy', 'allkeys-lru');
+      console.log('Redis configured with memory limits');
+    } catch (error) {
+      console.error('Redis connection error:', error);
+      // Continue without Redis if connection fails
+      console.log('Continuing without Redis caching...');
+    }
   }
 
   async disconnect() {
-    await this.client.quit();
+    try {
+      await this.client.quit();
+    } catch (error) {
+      console.error('Redis disconnect error:', error);
+    }
   }
 }
 
