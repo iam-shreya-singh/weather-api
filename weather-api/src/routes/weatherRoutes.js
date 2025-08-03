@@ -1,5 +1,5 @@
 const express = require('express');
-const { body } = require('express-validator');
+const { body, validationResult } = require('express-validator');
 const weatherController = require('../controllers/weatherController');
 const rateLimiter = require('../middleware/rateLimiter');
 
@@ -9,7 +9,7 @@ const router = express.Router();
 router.use(rateLimiter);
 
 // Get weather for a location
-router.get('/:location', [
+router.get('/:location', 
   // Validate location parameter
   (req, res, next) => {
     if (!req.params.location || req.params.location.length < 2) {
@@ -19,12 +19,24 @@ router.get('/:location', [
       });
     }
     next();
-  }
-], weatherController.getWeather);
+  },
+  weatherController.getWeather
+);
+
+// Weather visualization
 router.get('/:location/visualization', weatherController.getWeatherVisualization);
+
 // Natural language weather query
-router.post('/nlp', [
-  body('query').isLength({ min: 5 }).withMessage('Query must be at least 5 characters long')
-], weatherController.getWeatherWithNLP);
+router.post('/nlp', 
+  body('query').isLength({ min: 5 }).withMessage('Query must be at least 5 characters long'),
+  (req, res, next) => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ errors: errors.array() });
+    }
+    next();
+  },
+  weatherController.getWeatherWithNLP
+);
 
 module.exports = router;
