@@ -6,9 +6,20 @@ class WeatherService {
   constructor() {
     this.apiKey = process.env.WEATHER_API_KEY;
     this.baseUrl = process.env.WEATHER_API_URL;
+    this.cacheInitialized = false;
+  }
+
+  async ensureCacheInitialized() {
+    if (!this.cacheInitialized) {
+      await cacheService.checkRedisConnection();
+      this.cacheInitialized = true;
+    }
   }
 
   async fetchWeatherData(location) {
+    // Ensure cache is initialized
+    await this.ensureCacheInitialized();
+    
     const cacheKey = cacheService.generateKey('weather', { location });
     
     // Try to get from cache first
