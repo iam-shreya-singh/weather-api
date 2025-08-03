@@ -3,6 +3,7 @@ const express = require('express');
 const cors = require('cors');
 const weatherRoutes = require('./routes/weatherRoutes');
 const errorHandler = require('./middleware/errorHandler');
+const redisConfig = require('./config/redisConfig'); 
 
 const app = express();
 const PORT = process.env.PORT || 3000;

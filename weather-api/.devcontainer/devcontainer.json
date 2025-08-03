@@ -1,14 +1,10 @@
 {
   "name": "Weather API",
-  "image": "mcr.microsoft.com/devcontainers/javascript-node:0-18",
-  "features": {
-    "ghcr.io/devcontainers/features/redis:1": {
-      "version": "7.2"
-    }
-  },
+  "dockerComposeFile": "docker-compose.yml",
+  "service": "app",
+  "workspaceFolder": "/app",
   "forwardPorts": [3000, 6379],
   "postCreateCommand": "npm install",
-  "postStartCommand": "redis-cli ping",
   "customizations": {
     "vscode": {
       "extensions": [

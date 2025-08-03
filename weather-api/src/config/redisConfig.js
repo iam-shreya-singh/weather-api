@@ -4,15 +4,23 @@ class RedisConfig {
   constructor() {
     this.client = null;
     this.isConnected = false;
+    this.connectionAttempts = 0;
+    this.maxConnectionAttempts = 5;
   }
 
   async connect() {
     try {
-      // Create Redis client with v5 API
+      // Create Redis client with retry logic
       this.client = redis.createClient({
         url: process.env.REDIS_URL || 'redis://localhost:6379',
         socket: {
-          reconnectStrategy: (retries) => Math.min(retries * 50, 500)
+          reconnectStrategy: (retries) => {
+            if (retries > this.maxConnectionAttempts) {
+              console.log('Max Redis connection attempts reached, giving up');
+              return new Error('Max connection attempts reached');
+            }
+            return Math.min(retries * 100, 3000); // Exponential backoff
+          }
         }
       });
 
@@ -60,7 +68,7 @@ class RedisConfig {
     }
   }
 
-  // Redis operations using v5 promise-based API
+  // ... rest of the methods remain the same
   async get(key) {
     if (!this.isConnected || !this.client) return null;
     
@@ -77,7 +85,6 @@ class RedisConfig {
     if (!this.isConnected || !this.client) return false;
     
     try {
-      // Use set with expiration
       await this.client.setEx(key, expiration, JSON.stringify(value));
       return true;
     } catch (error) {
