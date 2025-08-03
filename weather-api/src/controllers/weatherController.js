@@ -4,13 +4,9 @@ const { validationResult } = require('express-validator');
 const VisualizationService = require('../ai/visualizationService');
 
 class WeatherController {
-    async getWeatherVisualization(req, res, next) {
-       try {
-      const errors = validationResult(req);
-      if (!errors.isEmpty()) {
-        return res.status(400).json({ errors: errors.array() });
-      }
-      
+  // Missing method - add this
+  async getWeather(req, res, next) {
+    try {
       const { location } = req.params;
       const { includeAI } = req.query;
 
@@ -31,6 +27,42 @@ class WeatherController {
     }
   }
 
+  // Fix this method to actually generate visualization
+  async getWeatherVisualization(req, res, next) {
+    try {
+      const { location } = req.params;
+      
+      // Get weather data
+      const weatherData = await weatherService.fetchWeatherData(location);
+      
+      // Generate a description for the image
+      const aiEnhanced = await aiService.enhanceWeatherData(weatherData);
+      if (!aiEnhanced) {
+        return res.status(500).json({
+          success: false,
+          message: 'Failed to generate weather description'
+        });
+      }
+
+      // Extract the description from the AI response
+      const description = aiEnhanced.description;
+      
+      // Generate the image
+      const visualizationService = new VisualizationService();
+      const imageUrl = await visualizationService.generateWeatherImage(description);
+
+      res.json({
+        success: true,
+        location,
+        weather: weatherData,
+        imageUrl,
+        timestamp: new Date().toISOString()
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
   async getWeatherWithNLP(req, res, next) {
     try {
       const { query } = req.body;
@@ -42,7 +74,7 @@ class WeatherController {
           message: 'Could not determine location from your query'
         });
       }
-
+      
       const weatherData = await weatherService.fetchWeatherData(location);
       const response = await aiService.generateNaturalLanguageResponse(query, weatherData);
 
