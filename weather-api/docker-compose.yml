@@ -9,6 +9,11 @@ services:
       - NODE_ENV=development
       - REDIS_URL=redis://redis:6379
       - PORT=3000
+      # Pass through the Codespaces secrets
+      - WEATHER_API_KEY=${WEATHER_API_KEY}
+      - WEATHER_API_URL=${WEATHER_API_URL}
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - STABILITY_API_KEY=${STABILITY_API_KEY}
     depends_on:
       - redis
     volumes:
