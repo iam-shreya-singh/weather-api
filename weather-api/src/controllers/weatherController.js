@@ -1,5 +1,6 @@
 const weatherService = require('../services/weatherService');
 const aiService = require('../ai/aiService');
+const openWeatherMapService = require('../services/openWeatherMapService');
 const { validationResult } = require('express-validator');
 const VisualizationService = require('../ai/visualizationService');
 
