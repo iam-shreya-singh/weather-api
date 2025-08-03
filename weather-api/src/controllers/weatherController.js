@@ -1,15 +1,16 @@
 const weatherService = require('../services/weatherService');
 const aiService = require('../ai/aiService');
 const { validationResult } = require('express-validator');
+const VisualizationService = require('../ai/visualizationService');
 
 class WeatherController {
-  async getWeather(req, res, next) {
-    try {
+    async getWeatherVisualization(req, res, next) {
+       try {
       const errors = validationResult(req);
       if (!errors.isEmpty()) {
         return res.status(400).json({ errors: errors.array() });
       }
-
+      
       const { location } = req.params;
       const { includeAI } = req.query;
 

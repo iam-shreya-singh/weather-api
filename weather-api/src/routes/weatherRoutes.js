@@ -21,7 +21,7 @@ router.get('/:location', [
     next();
   }
 ], weatherController.getWeather);
-
+router.get('/:location/visualization', weatherController.getWeatherVisualization);
 // Natural language weather query
 router.post('/nlp', [
   body('query').isLength({ min: 5 }).withMessage('Query must be at least 5 characters long')
