@@ -69,7 +69,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
       </Toolbar>
       <List>
         {menuItems.map((item) => (
-          <ListItem button key={item.text} component="a" href={item.path}>
+          <ListItem key={item.text} component="a" href={item.path}>
             <ListItemIcon>{item.icon}</ListItemIcon>
             <ListItemText primary={item.text} />
           </ListItem>
